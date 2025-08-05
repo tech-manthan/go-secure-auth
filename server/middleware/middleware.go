@@ -8,6 +8,7 @@ import (
 	"github.com/justinas/alice"
 	"github.com/tech-manthan/secure-auth/db/models"
 	myjwt "github.com/tech-manthan/secure-auth/server/middleware/myJwt"
+	"github.com/tech-manthan/secure-auth/server/templates"
 )
 
 func NewHandler() http.Handler {
@@ -42,15 +43,22 @@ func authHandler(next http.Handler) http.Handler {
 func logicHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/restricted":
+		csrfSecret := grabCSRFFromReq(r)
+		templates.RenderTemplate(w, "restricted", &templates.RestrictedPage{
+			CSRFSecret:    csrfSecret,
+			SecretMessage: "Hello Manthan",
+		})
 	case "/login":
 		switch r.Method {
 		case "GET":
+			templates.RenderTemplate(w, "login", &templates.LoginPage{BAlertUser: false, AlertMsg: ""})
 		case "POST":
 		default:
 		}
 	case "/register":
 		switch r.Method {
 		case "GET":
+			templates.RenderTemplate(w, "register", &templates.RegisterPage{BAlertUser: false, AlertMsg: ""})
 		case "POST":
 		default:
 		}
