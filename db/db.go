@@ -99,8 +99,8 @@ func CheckRefreshToken(jti string) bool {
 	return refreshTokens[jti] != "valid"
 }
 
-func LogUserIn(username string, password string) (models.User, string, error) {
-	user, uuid, err := FetchUserByUsername(username)
+func LogUserIn(username string, password string) (user models.User, uuid string, err error) {
+	user, uuid, err = FetchUserByUsername(username)
 
 	if err != nil {
 		return models.User{}, "", err

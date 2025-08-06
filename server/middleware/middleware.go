@@ -106,7 +106,33 @@ func logicHandler(w http.ResponseWriter, r *http.Request) {
 		case "GET":
 			templates.RenderTemplate(w, "login", &templates.LoginPage{BAlertUser: false, AlertMsg: ""})
 		case "POST":
+			r.ParseForm()
+
+			user, uuid, err := db.LogUserIn(
+				strings.Join(r.Form["username"], ""),
+				strings.Join(r.Form["password"], ""),
+			)
+
+			if err != nil {
+				w.WriteHeader(http.StatusUnauthorized)
+				// http.Error(w, http.StatusText(500), 500)
+				return
+			}
+			log.Println("uuid :" + uuid)
+
+			authTokenString, refreshTokenString, csrfToken, err := myjwt.CreateNewTokens(uuid, user.Role)
+
+			if err != nil {
+				http.Error(w, http.StatusText(500), 500)
+				return
+			}
+
+			setAuthAndRefreshCookies(&w, authTokenString, refreshTokenString)
+			w.Header().Set("X-CSRF-Token", csrfToken)
+			w.WriteHeader(http.StatusOK)
+
 		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
 		}
 	case "/register":
 		switch r.Method {
@@ -145,7 +171,7 @@ func logicHandler(w http.ResponseWriter, r *http.Request) {
 
 			setAuthAndRefreshCookies(&w, authTokenString, refreshTokenString)
 			w.Header().Set("X-CSRF-Token", csrfToken)
-			w.WriteHeader(http.StatusOK)
+			w.WriteHeader(http.StatusCreated)
 
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
