@@ -180,7 +180,36 @@ func logicHandler(w http.ResponseWriter, r *http.Request) {
 		nullifyTokenCookies(&w, r)
 		http.Redirect(w, r, "/login", 302)
 	case "/deleteUser":
+		log.Println("Deleting the user")
+
+		AuthCookie, err := r.Cookie("AuthToken")
+
+		if err == http.ErrNoCookie {
+			log.Println("Unauthorized Attempt")
+			nullifyTokenCookies(&w, r)
+			http.Redirect(w, r, "/login", 302)
+			return
+		} else if err != nil {
+			log.Panicf("Panic : %+v", err)
+			nullifyTokenCookies(&w, r)
+			http.Error(w, http.StatusText(500), 500)
+			return
+		}
+
+		uuid, err := myjwt.GradUUID(AuthCookie.Value)
+
+		if err != nil {
+			log.Panicf("Panic : %+v", err)
+			nullifyTokenCookies(&w, r)
+			http.Error(w, http.StatusText(500), 500)
+			return
+		}
+
+		db.DeleteUser(uuid)
+		nullifyTokenCookies(&w, r)
+		http.Redirect(w, r, "/register", 302)
 	default:
+		w.WriteHeader(http.StatusNotImplemented)
 	}
 }
 
