@@ -35,8 +35,59 @@ func authHandler(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/restricted", "/logout", "/deleteUser":
+			log.Println("In Auth Restricted section")
+
+			AuthCookie, authErr := r.Cookie("AuthToken")
+
+			if authErr == http.ErrNoCookie {
+				log.Println("Unauthorized attempt! no auth cookie")
+				nullifyTokenCookies(&w, r)
+				http.Error(w, http.StatusText(401), 401)
+				return
+			} else if authErr != nil {
+				log.Panicf("Panic : %+v", authErr)
+				nullifyTokenCookies(&w, r)
+				http.Error(w, http.StatusText(500), 500)
+				return
+			}
+
+			RefreshCookie, refreshErr := r.Cookie("AuthToken")
+
+			if refreshErr == http.ErrNoCookie {
+				log.Println("Unauthorized attempt! no refresh cookie")
+				nullifyTokenCookies(&w, r)
+				// http.Error(w, http.StatusText(401), 401)
+				http.Redirect(w, r, "/login", 302)
+				return
+			} else if refreshErr != nil {
+				log.Panicf("Panic : %+v", refreshErr)
+				nullifyTokenCookies(&w, r)
+				http.Error(w, http.StatusText(500), 500)
+				return
+			}
+
+			csrfToken := grabCSRFFromReq(r)
+
+			authTokenString, refreshTokenString, csrfTokenString, err := myjwt.CheckAndRefreshTokens(AuthCookie.Value, RefreshCookie.Value, csrfToken)
+
+			if err != nil {
+				if err.Error() == "Unauthorized" {
+					log.Println("Unauthorized attempt, JWT's not valid")
+					http.Error(w, http.StatusText(401), 401)
+					return
+				} else {
+					log.Panicf("Panic : %+v", err)
+					http.Error(w, http.StatusText(500), 500)
+					return
+				}
+			}
+			log.Println("Successfully Recreated jwts")
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			setAuthAndRefreshCookies(&w, authTokenString, refreshTokenString)
+			w.Header().Set("X-CSRF-Token", csrfTokenString)
 		default:
 		}
+		next.ServeHTTP(w, r)
 	}
 
 	return http.HandlerFunc(fn)
