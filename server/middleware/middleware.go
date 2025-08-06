@@ -130,6 +130,7 @@ func logicHandler(w http.ResponseWriter, r *http.Request) {
 			setAuthAndRefreshCookies(&w, authTokenString, refreshTokenString)
 			w.Header().Set("X-CSRF-Token", csrfToken)
 			w.WriteHeader(http.StatusOK)
+			// http.Redirect(w, r, "/restricted", 302)
 
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -144,34 +145,35 @@ func logicHandler(w http.ResponseWriter, r *http.Request) {
 
 			_, _, err := db.FetchUserByUsername(strings.Join(r.Form["username"], ""))
 
-			if err != nil {
+			if err == nil {
 				w.WriteHeader(http.StatusUnauthorized)
 				return
+			} else {
+				role := "user"
+				uuid, err := db.StoreUser(
+					strings.Join(r.Form["username"], ""),
+					strings.Join(r.Form["password"], ""),
+					role,
+				)
+
+				if err != nil {
+					http.Error(w, http.StatusText(500), 500)
+					return
+				}
+				log.Println("uuid :" + uuid)
+
+				authTokenString, refreshTokenString, csrfToken, err := myjwt.CreateNewTokens(uuid, role)
+
+				if err != nil {
+					http.Error(w, http.StatusText(500), 500)
+					return
+				}
+
+				setAuthAndRefreshCookies(&w, authTokenString, refreshTokenString)
+				w.Header().Set("X-CSRF-Token", csrfToken)
+				w.WriteHeader(http.StatusCreated)
+				// http.Redirect(w, r, "/restricted", 302)
 			}
-
-			role := "user"
-			uuid, err := db.StoreUser(
-				strings.Join(r.Form["username"], ""),
-				strings.Join(r.Form["password"], ""),
-				role,
-			)
-
-			if err != nil {
-				http.Error(w, http.StatusText(500), 500)
-				return
-			}
-			log.Println("uuid :" + uuid)
-
-			authTokenString, refreshTokenString, csrfToken, err := myjwt.CreateNewTokens(uuid, role)
-
-			if err != nil {
-				http.Error(w, http.StatusText(500), 500)
-				return
-			}
-
-			setAuthAndRefreshCookies(&w, authTokenString, refreshTokenString)
-			w.Header().Set("X-CSRF-Token", csrfToken)
-			w.WriteHeader(http.StatusCreated)
 
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)

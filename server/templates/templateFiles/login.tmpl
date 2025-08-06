@@ -1,101 +1,103 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login</title>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.0.0/jquery.min.js"></script>
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.2/components/core-min.js"></script>
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.2/components/sha256-min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.2/components/core-min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.2/components/sha256-min.js"></script>
+
+  <style>
+    html, body {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    #login {
+      text-align: center;
+      width: 75%;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .fullWidth {
+      width: 100%;
+    }
+    input {
+      margin-top: 5px;
+    }
+    h1 {
+      margin-top: 25px;
+    }
+  </style>
 </head>
 <body>
-		<div id="login">
-			<h1>Login</h1>
-			<form id="fakeLogin" name="fakeLogin" onsubmit="return DoSubmit();">
-				<input class="fullWidth" name="username" type="text" placeholder="username" />
-				<input class="fullWidth" name="password" type="password" placeholder="password" />
+  <div id="login">
+    <h1>Login</h1>
+    <form id="fakeLogin" name="fakeLogin">
+      <input class="fullWidth" name="username" type="text" placeholder="username" />
+      <input class="fullWidth" name="password" type="password" placeholder="password" />
+      <input type="submit" value="Login" />
+    </form>
 
-				<input type="Submit" value="Login" />
-			</form>
-			<form style="display: none;" id="realLogin" name="realLogin" action="/login" method="POST">
-				<input class="fullWidth" name="username" type="text" placeholder="username" />
-				<input class="fullWidth" name="password" type="password" placeholder="password" />
-			</form>
-			<form id="restricted" name="restricted" action="/restricted" method="POST" style="display: none;">
-				<input id="X-CSRF-Token-input" name="X-CSRF-Token" />
-			</form>
-		</div>
+    <form style="display: none;" id="realLogin" name="realLogin" action="/login" method="POST">
+      <input class="fullWidth" name="username" type="text" placeholder="username" />
+      <input class="fullWidth" name="password" type="password" placeholder="password" />
+    </form>
 
-		<style>
-			html, body {
-				height: 100%;
-				width: 100%;
-				
-				margin: 0px;
-				padding: 0px;
-			}
+    <form id="restricted" name="restricted" action="/restricted" method="POST" style="display: none;">
+      <input id="X-CSRF-Token-input" name="X-CSRF-Token" />
+    </form>
+  </div>
 
-			#login {
-				text-align: center;
+  <script>
+    // Example: Replace these template values if needed from server-side rendering
+    const BAlertUser = false;
+    const AlertMsg = "Login failed";
 
-				width: 75%;
-				max-width: 600px;
+    if (BAlertUser) alert(AlertMsg);
 
-				margin: 0 auto;
-			}
+    document.getElementById("fakeLogin").addEventListener("submit", function (event) {
+      event.preventDefault();
 
-			.fullWidth {
-				width: 100%;
-			}
+      const fakeForm = document.forms["fakeLogin"];
+      const realForm = document.forms["realLogin"];
+      const restrictedForm = document.forms["restricted"];
 
-			input {
-				margin-top: 5px;
-			}
+      const username = fakeForm.username.value;
+      const password = fakeForm.password.value;
 
-			h1 {
-				margin-top: 25px;
-			}
-		</style>
+      const hashedPassword = CryptoJS.SHA256(password).toString(CryptoJS.enc.Hex);
 
-		<script>
-			if ( {{ .BAlertUser }} ) alert("{{ .AlertMsg }}");
+      realForm.username.value = username;
+      realForm.password.value = hashedPassword;
 
-			function DoSubmit(){
-				document.realLogin.username.value = document.fakeLogin.username.value;
-				document.realLogin.password.value = CryptoJS.SHA256(document.fakeLogin.password.value).toString(CryptoJS.enc.Hex);
+      // Prepare data to send (like jQuery's .serializeArray)
+      const formData = new FormData(realForm);
+      const searchParams = new URLSearchParams(formData);
 
-				$.ajax({
-					'type': 	'POST',
-					'url': 		'/login',
-					'data': 	$('#realLogin').serializeArray(),
-					success: function(data, textStatus, request) {
-						var token = request.getResponseHeader('X-CSRF-Token');
-						console.log("Success! The token is: ", token);
-						$("#X-CSRF-Token-input").val(token);
-						$("#restricted").submit();
-
-						// $.ajax({
-						// 	'url': 		"/restricted",
-						// 	'headers': 	{ 'X-CSRF-Token' : token },             
-						// 	'type': 	"GET",
-						// 	success: function(data, textStatus, request) {
-						// 		console.log("Success the 2nd time!");
-						// 		console.log(data, textStatus, request)
-						// 	},
-						// 	error: function (request, textStatus, errorThrown) {
-						// 		console.log("Error the 2nd time!");
-						// 		console.log(request, textStatus, errorThrown)
-						// 	}
-						// });
-					},
-					error: function (request, textStatus, errorThrown) {
-						console.log("Error!", request.getResponseHeader('X-CSRF-Token'));
-					}
-				});
-
-				return false;
-			}
-		</script>
-	</body>
+      fetch("/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: searchParams.toString()
+      })
+      .then(response => {
+        const token = response.headers.get("X-CSRF-Token");
+        if (token) {
+          console.log("Success! The token is: ", token);
+          document.getElementById("X-CSRF-Token-input").value = token;
+          restrictedForm.submit();
+        } else {
+          throw new Error("CSRF token missing in response");
+        }
+      })
+      .catch(error => {
+        console.error("Login error:", error);
+      });
+    });
+  </script>
+</body>
 </html>
